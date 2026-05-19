@@ -1,28 +1,182 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:math' as math;
 
 void main() {
   runApp(const ProFixerApp());
 }
 
-// Global Language Controller State
 enum AppLanguage { english, urdu, romanUrdu }
 
-class ProFixerApp extends StatefulWidget {
-  const ProFixerApp({Key? key}) : super(key: key);
+// ── Design Tokens ──────────────────────────────────────────
+class AppColors {
+  static const primary      = Color(0xFF0A7C6E);
+  static const primaryLight = Color(0xFF14B8A6);
+  static const primaryDark  = Color(0xFF065F52);
+  static const accent       = Color(0xFFFFB347);
+  static const danger       = Color(0xFFEF4444);
+  static const bg           = Color(0xFFF0F7F6);
+  static const surface      = Colors.white;
+  static const textDark     = Color(0xFF0F172A);
+  static const textMid      = Color(0xFF475569);
+  static const textLight    = Color(0xFF94A3B8);
+  static const border       = Color(0xFFE2E8F0);
+  static const cardShadow   = Color(0x1A0A7C6E);
+}
+
+class AppGradients {
+  static const primary = LinearGradient(
+    colors: [Color(0xFF065F52), Color(0xFF0D9488), Color(0xFF14B8A6)],
+    begin: Alignment.topLeft, end: Alignment.bottomRight,
+  );
+  static const hero = LinearGradient(
+    colors: [Color(0xFF042F2E), Color(0xFF065F52), Color(0xFF0F766E)],
+    begin: Alignment.topLeft, end: Alignment.bottomRight,
+  );
+}
+
+// ══════════════════════════════════════════════════════════
+// FLOATING ANIMATED BACKGROUND
+// ══════════════════════════════════════════════════════════
+class _FloatingIcon {
+  final IconData icon;
+  final double x, y, size, speed, rotationSpeed, opacity;
+  double angle;
+  double rotAngle;
+
+  _FloatingIcon({
+    required this.icon,
+    required this.x,
+    required this.y,
+    required this.size,
+    required this.speed,
+    required this.rotationSpeed,
+    required this.opacity,
+    required this.angle,
+    required this.rotAngle,
+  });
+}
+
+class AnimatedBackgroundIcons extends StatefulWidget {
+  final Widget child;
+  final bool darkMode;
+  const AnimatedBackgroundIcons({Key? key, required this.child, this.darkMode = false}) : super(key: key);
 
   @override
-  State<ProFixerApp> createState() => _ProFixerAppState();
+  State<AnimatedBackgroundIcons> createState() => _AnimatedBackgroundIconsState();
+}
+
+class _AnimatedBackgroundIconsState extends State<AnimatedBackgroundIcons>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late List<_FloatingIcon> _icons;
+  final _rand = math.Random(42);
+
+  final List<IconData> _pool = [
+    Icons.handyman_rounded,
+    Icons.ac_unit_rounded,
+    Icons.plumbing_rounded,
+    Icons.electrical_services_rounded,
+    Icons.build_rounded,
+    Icons.home_repair_service_rounded,
+    Icons.settings_rounded,
+    Icons.bolt_rounded,
+    Icons.water_drop_rounded,
+    Icons.hvac_rounded,
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _icons = List.generate(18, (i) {
+      return _FloatingIcon(
+        icon: _pool[i % _pool.length],
+        x: _rand.nextDouble(),
+        y: _rand.nextDouble(),
+        size: 18 + _rand.nextDouble() * 28,
+        speed: 0.004 + _rand.nextDouble() * 0.008,
+        rotationSpeed: (0.003 + _rand.nextDouble() * 0.006) * (_rand.nextBool() ? 1 : -1),
+        opacity: 0.04 + _rand.nextDouble() * 0.09,
+        angle: _rand.nextDouble() * math.pi * 2,
+        rotAngle: _rand.nextDouble() * math.pi * 2,
+      );
+    });
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    )..repeat();
+
+    _controller.addListener(() {
+      setState(() {
+        for (final ic in _icons) {
+          ic.angle     += ic.speed;
+          ic.rotAngle  += ic.rotationSpeed;
+        }
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final iconColor = widget.darkMode ? Colors.white : AppColors.primary;
+
+    return Stack(
+      children: [
+        // Floating icons layer
+        Positioned.fill(
+          child: ClipRect(
+            child: LayoutBuilder(builder: (context, constraints) {
+              final w = constraints.maxWidth;
+              final h = constraints.maxHeight;
+              return Stack(
+                children: _icons.map((ic) {
+                  final cx = math.cos(ic.angle) * 0.18 * w;
+                  final cy = math.sin(ic.angle * 0.7) * 0.14 * h;
+                  final px = (ic.x * w) + cx;
+                  final py = (ic.y * h) + cy;
+
+                  return Positioned(
+                    left: px - ic.size / 2,
+                    top:  py - ic.size / 2,
+                    child: Transform.rotate(
+                      angle: ic.rotAngle,
+                      child: Icon(
+                        ic.icon,
+                        size:  ic.size,
+                        color: iconColor.withOpacity(ic.opacity),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              );
+            }),
+          ),
+        ),
+        // Actual page content on top
+        widget.child,
+      ],
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// LANGUAGE + LOCALIZATION
+// ══════════════════════════════════════════════════════════
+class ProFixerApp extends StatefulWidget {
+  const ProFixerApp({Key? key}) : super(key: key);
+  @override State<ProFixerApp> createState() => _ProFixerAppState();
 }
 
 class _ProFixerAppState extends State<ProFixerApp> {
-  AppLanguage _currentLang = AppLanguage.romanUrdu; // Default Language
-
-  void _changeLanguage(AppLanguage lang) {
-    setState(() {
-      _currentLang = lang;
-    });
-  }
+  AppLanguage _currentLang = AppLanguage.romanUrdu;
+  void _changeLanguage(AppLanguage lang) => setState(() => _currentLang = lang);
 
   @override
   Widget build(BuildContext context) {
@@ -33,17 +187,17 @@ class _ProFixerAppState extends State<ProFixerApp> {
         title: 'Asan Khidmat Hub',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
-          primaryColor: const Color(0xFF0D9488),
-          scaffoldBackgroundColor: const Color(0xFFF1F5F9), 
+          primaryColor: AppColors.primary,
+          scaffoldBackgroundColor: AppColors.bg,
           fontFamily: 'sans-serif',
+          colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
         ),
-        home: const AppNavigationWrapper(), 
+        home: const AppNavigationWrapper(),
       ),
     );
   }
 }
 
-// InheritedWidget to broadcast language changes across all screens smoothly
 class LanguageConfiguration extends InheritedWidget {
   final AppLanguage currentLanguage;
   final ValueChanged<AppLanguage> onLanguageChanged;
@@ -55,508 +209,430 @@ class LanguageConfiguration extends InheritedWidget {
     required Widget child,
   }) : super(key: key, child: child);
 
-  static LanguageConfiguration? of(BuildContext context) {
-    return context.dependOnInheritedWidgetOfExactType<LanguageConfiguration>();
-  }
+  static LanguageConfiguration? of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<LanguageConfiguration>();
 
   @override
-  bool updateShouldNotify(LanguageConfiguration oldWidget) {
-    return oldWidget.currentLanguage != currentLanguage;
-  }
+  bool updateShouldNotify(LanguageConfiguration old) => old.currentLanguage != currentLanguage;
 }
 
-// Multi-Language Dictionary Matrix
 class LocalizedStrings {
   static String get(BuildContext context, String key) {
     final lang = LanguageConfiguration.of(context)?.currentLanguage ?? AppLanguage.romanUrdu;
-    
-    final Map<String, Map<AppLanguage, String>> localizedValues = {
-      'appName': {
-        AppLanguage.english: 'Asan Khidmat Hub',
-        AppLanguage.urdu: 'آسان خدمت ہب',
-        AppLanguage.romanUrdu: 'Asan Khidmat Hub',
-      },
-      'tagline': {
-        AppLanguage.english: 'Convenience at home, in just one click',
-        AppLanguage.urdu: 'گھر بیٹھے سہولت، ایک کلک پر',
-        AppLanguage.romanUrdu: 'Ghar bethe sahulat, aik click par',
-      },
-      'signUpTitle': {
-        AppLanguage.english: 'Create Account ✨',
-        AppLanguage.urdu: 'نیا اکاؤنٹ بنائیں ✨',
-        AppLanguage.romanUrdu: 'Naya Account Banayein ✨',
-      },
-      'signUpSub': {
-        AppLanguage.english: 'Register now to access premium informal services.',
-        AppLanguage.urdu: 'آسان سہولیات کا فائدہ اٹھانے کے لیے ابھی رجسٹر کریں۔',
-        AppLanguage.romanUrdu: 'Asan sahulat ka faida uthane ke liye register karein.',
-      },
-      'fullNameLabel': {
-        AppLanguage.english: 'Full Name',
-        AppLanguage.urdu: 'آپ کا نام (پورا نام)',
-        AppLanguage.romanUrdu: 'Aap ka Naam (Full Name)',
-      },
-      'emailLabel': {
-        AppLanguage.english: 'Email Address',
-        AppLanguage.urdu: 'ای میل ایڈریس',
-        AppLanguage.romanUrdu: 'Email Address',
-      },
-      'mobileLabel': {
-        AppLanguage.english: 'Mobile Number',
-        AppLanguage.urdu: 'موبائل نمبر',
-        AppLanguage.romanUrdu: 'Mobile Number',
-      },
-      'passwordLabel': {
-        AppLanguage.english: 'Password',
-        AppLanguage.urdu: 'پاس ورڈ',
-        AppLanguage.romanUrdu: 'Password',
-      },
-      'btnSignUp': {
-        AppLanguage.english: 'Create Account (Sign Up)',
-        AppLanguage.urdu: 'اکاؤنٹ بنائیں',
-        AppLanguage.romanUrdu: 'Account Banayein (Sign Up)',
-      },
-      'alreadyAccount': {
-        AppLanguage.english: 'Already have an account? Log In',
-        AppLanguage.urdu: 'پہلے سے اکاؤنٹ ہے؟ لاگ ان کریں',
-        AppLanguage.romanUrdu: 'Pehle se account hai? Log In karein',
-      },
-      'searchHint': {
-        AppLanguage.english: 'How can I help you today?',
-        AppLanguage.urdu: 'میں آپ کی کیا مدد کر سکتا ہوں؟',
-        AppLanguage.romanUrdu: 'Main kya madad karoon aap ki?',
-      },
-      'chatPrompt': {
-        AppLanguage.english: 'Tap below to chat with our AI Agent 💬',
-        AppLanguage.urdu: 'اے آئی بوٹ سے بات کرنے کے لیے نیچے دبائیں 💬',
-        AppLanguage.romanUrdu: 'Chatbot se baat karne ke liye niche 💬 dabayein',
-      },
-      'locationTitle': {
-        AppLanguage.english: 'Select Location',
-        AppLanguage.urdu: 'لوکیشن منتخب کریں',
-        AppLanguage.romanUrdu: 'Location Chunye',
-      },
-      'locationSub': {
-        AppLanguage.english: 'Select your city and operating area:',
-        AppLanguage.urdu: 'اپنا شہر اور علاقہ منتخب کریں:',
-        AppLanguage.romanUrdu: 'Apna Sheher aur Ilaqa muntakhif karein:',
-      },
-      'cityLabel': {
-        AppLanguage.english: 'City',
-        AppLanguage.urdu: 'شہر',
-        AppLanguage.romanUrdu: 'Sheher (City)',
-      },
-      'areaLabel': {
-        AppLanguage.english: 'Area',
-        AppLanguage.urdu: 'علاقہ',
-        AppLanguage.romanUrdu: 'Ilaqa (Area)',
-      },
-      'btnNext': {
-        AppLanguage.english: 'Proceed Forward',
-        AppLanguage.urdu: 'آگے چلیں',
-        AppLanguage.romanUrdu: 'Aagay Chalein',
-      },
-      'selectServiceTitle': {
-        AppLanguage.english: 'Select Required Service:',
-        AppLanguage.urdu: 'سروس منتخب کریں:',
-        AppLanguage.romanUrdu: 'Service Muntakhif Karein:',
-      },
-      'availableNowTitle': {
-        AppLanguage.english: 'Available Now:',
-        AppLanguage.urdu: 'ابھی دستیاب ہے:',
-        AppLanguage.romanUrdu: 'Available Now (Abhi Maujood Hai):',
-      },
-      'busyTitle': {
-        AppLanguage.english: 'Currently Busy Providers:',
-        AppLanguage.urdu: 'مصروف فراہم کنندگان:',
-        AppLanguage.romanUrdu: 'Filhal Busy Providers:',
-      },
-      'selectServicePrompt': {
-        AppLanguage.english: 'Please select a service from above categories.',
-        AppLanguage.urdu: 'اوپر سے کوئی بھی ایک سروس منتخب کریں۔',
-        AppLanguage.romanUrdu: 'Upar se koi bhi aik service select karein.',
-      },
-      
-      // Cities
-      'Karachi': { AppLanguage.english: 'Karachi', AppLanguage.urdu: 'کراچی', AppLanguage.romanUrdu: 'Karachi' },
-      'Lahore': { AppLanguage.english: 'Lahore', AppLanguage.urdu: 'لاہور', AppLanguage.romanUrdu: 'Lahore' },
-      'Islamabad': { AppLanguage.english: 'Islamabad', AppLanguage.urdu: 'اسلام آباد', AppLanguage.romanUrdu: 'Islamabad' },
-
-      // Areas
-      'Saddar': { AppLanguage.english: 'Saddar', AppLanguage.urdu: 'صدر', AppLanguage.romanUrdu: 'Saddar' },
-      'Gulshan-e-Iqbal': { AppLanguage.english: 'Gulshan-e-Iqbal', AppLanguage.urdu: 'گلشنِ اقبال', AppLanguage.romanUrdu: 'Gulshan-e-Iqbal' },
-      'Clifton': { AppLanguage.english: 'Clifton', AppLanguage.urdu: 'کلفٹن', AppLanguage.romanUrdu: 'Clifton' },
-      'Gulberg': { AppLanguage.english: 'Gulberg', AppLanguage.urdu: 'گلبرگ', AppLanguage.romanUrdu: 'Gulberg' },
-      'DHA Phase 5': { AppLanguage.english: 'DHA Phase 5', AppLanguage.urdu: 'ڈی ایچ اے فیز 5', AppLanguage.romanUrdu: 'DHA Phase 5' },
-      'Johar Town': { AppLanguage.english: 'Johar Town', AppLanguage.urdu: 'جوہر ٹاؤن', AppLanguage.romanUrdu: 'Johar Town' },
-      'G-11': { AppLanguage.english: 'G-11', AppLanguage.urdu: 'جی الیون', AppLanguage.romanUrdu: 'G-11' },
-      'F-6': { AppLanguage.english: 'F-6', AppLanguage.urdu: 'ایف سکس', AppLanguage.romanUrdu: 'F-6' },
-      'I-9': { AppLanguage.english: 'I-9', AppLanguage.urdu: 'آئی نائن', AppLanguage.romanUrdu: 'I-9' },
-
-      // Services
-      'AC Repair': { AppLanguage.english: 'AC Repair', AppLanguage.urdu: 'اے سی کی مرمت', AppLanguage.romanUrdu: 'AC Repair' },
-      'Plumber': { AppLanguage.english: 'Plumber', AppLanguage.urdu: 'پلمبر (نل ساز)', AppLanguage.romanUrdu: 'Plumber' },
-      'Electrician': { AppLanguage.english: 'Electrician', AppLanguage.urdu: 'الیکٹریشن', AppLanguage.romanUrdu: 'Electrician' },
+    final Map<String, Map<AppLanguage, String>> v = {
+      'appName':             { AppLanguage.english: 'Asan Khidmat Hub',       AppLanguage.urdu: 'آسان خدمت ہب',                                        AppLanguage.romanUrdu: 'Asan Khidmat Hub' },
+      'tagline':             { AppLanguage.english: 'Convenience at home, in just one click', AppLanguage.urdu: 'گھر بیٹھے سہولت، ایک کلک پر',         AppLanguage.romanUrdu: 'Ghar bethe sahulat, aik click par' },
+      'signUpTitle':         { AppLanguage.english: 'Create Account ✨',       AppLanguage.urdu: 'نیا اکاؤنٹ بنائیں ✨',                                 AppLanguage.romanUrdu: 'Naya Account Banayein ✨' },
+      'signUpSub':           { AppLanguage.english: 'Register now to access premium informal services.', AppLanguage.urdu: 'آسان سہولیات کا فائدہ اٹھانے کے لیے ابھی رجسٹر کریں۔', AppLanguage.romanUrdu: 'Asan sahulat ka faida uthane ke liye register karein.' },
+      'fullNameLabel':       { AppLanguage.english: 'Full Name',               AppLanguage.urdu: 'آپ کا نام (پورا نام)',                                 AppLanguage.romanUrdu: 'Aap ka Naam (Full Name)' },
+      'emailLabel':          { AppLanguage.english: 'Email Address',           AppLanguage.urdu: 'ای میل ایڈریس',                                        AppLanguage.romanUrdu: 'Email Address' },
+      'mobileLabel':         { AppLanguage.english: 'Mobile Number',           AppLanguage.urdu: 'موبائل نمبر',                                          AppLanguage.romanUrdu: 'Mobile Number' },
+      'passwordLabel':       { AppLanguage.english: 'Password',                AppLanguage.urdu: 'پاس ورڈ',                                              AppLanguage.romanUrdu: 'Password' },
+      'btnSignUp':           { AppLanguage.english: 'Create Account (Sign Up)',AppLanguage.urdu: 'اکاؤنٹ بنائیں',                                        AppLanguage.romanUrdu: 'Account Banayein (Sign Up)' },
+      'alreadyAccount':      { AppLanguage.english: 'Already have an account? Log In', AppLanguage.urdu: 'پہلے سے اکاؤنٹ ہے؟ لاگ ان کریں',             AppLanguage.romanUrdu: 'Pehle se account hai? Log In karein' },
+      'searchHint':          { AppLanguage.english: 'How can I help you today?', AppLanguage.urdu: 'میں آپ کی کیا مدد کر سکتا ہوں؟',                   AppLanguage.romanUrdu: 'Main kya madad karoon aap ki?' },
+      'chatPrompt':          { AppLanguage.english: 'Tap below to chat with our AI Agent 💬', AppLanguage.urdu: 'اے آئی بوٹ سے بات کرنے کے لیے نیچے دبائیں 💬', AppLanguage.romanUrdu: 'Chatbot se baat karne ke liye niche 💬 dabayein' },
+      'locationTitle':       { AppLanguage.english: 'Select Location',         AppLanguage.urdu: 'لوکیشن منتخب کریں',                                   AppLanguage.romanUrdu: 'Location Chunye' },
+      'locationSub':         { AppLanguage.english: 'Select your city and operating area:', AppLanguage.urdu: 'اپنا شہر اور علاقہ منتخب کریں:',          AppLanguage.romanUrdu: 'Apna Sheher aur Ilaqa muntakhif karein:' },
+      'cityLabel':           { AppLanguage.english: 'City',                    AppLanguage.urdu: 'شہر',                                                  AppLanguage.romanUrdu: 'Sheher (City)' },
+      'areaLabel':           { AppLanguage.english: 'Area',                    AppLanguage.urdu: 'علاقہ',                                                AppLanguage.romanUrdu: 'Ilaqa (Area)' },
+      'btnNext':             { AppLanguage.english: 'Proceed Forward',         AppLanguage.urdu: 'آگے چلیں',                                             AppLanguage.romanUrdu: 'Aagay Chalein' },
+      'selectServiceTitle':  { AppLanguage.english: 'Select Required Service:',AppLanguage.urdu: 'سروس منتخب کریں:',                                     AppLanguage.romanUrdu: 'Service Muntakhif Karein:' },
+      'availableNowTitle':   { AppLanguage.english: 'Available Now:',          AppLanguage.urdu: 'ابھی دستیاب ہے:',                                      AppLanguage.romanUrdu: 'Available Now (Abhi Maujood Hai):' },
+      'busyTitle':           { AppLanguage.english: 'Currently Busy Providers:', AppLanguage.urdu: 'مصروف فراہم کنندگان:',                               AppLanguage.romanUrdu: 'Filhal Busy Providers:' },
+      'selectServicePrompt': { AppLanguage.english: 'Please select a service from above categories.', AppLanguage.urdu: 'اوپر سے کوئی بھی ایک سروس منتخب کریں۔', AppLanguage.romanUrdu: 'Upar se koi bhi aik service select karein.' },
+      'Karachi':        { AppLanguage.english: 'Karachi',        AppLanguage.urdu: 'کراچی',          AppLanguage.romanUrdu: 'Karachi' },
+      'Lahore':         { AppLanguage.english: 'Lahore',         AppLanguage.urdu: 'لاہور',           AppLanguage.romanUrdu: 'Lahore' },
+      'Islamabad':      { AppLanguage.english: 'Islamabad',      AppLanguage.urdu: 'اسلام آباد',      AppLanguage.romanUrdu: 'Islamabad' },
+      'Saddar':         { AppLanguage.english: 'Saddar',         AppLanguage.urdu: 'صدر',             AppLanguage.romanUrdu: 'Saddar' },
+      'Gulshan-e-Iqbal':{ AppLanguage.english: 'Gulshan-e-Iqbal',AppLanguage.urdu: 'گلشنِ اقبال',   AppLanguage.romanUrdu: 'Gulshan-e-Iqbal' },
+      'Clifton':        { AppLanguage.english: 'Clifton',        AppLanguage.urdu: 'کلفٹن',           AppLanguage.romanUrdu: 'Clifton' },
+      'Gulberg':        { AppLanguage.english: 'Gulberg',        AppLanguage.urdu: 'گلبرگ',           AppLanguage.romanUrdu: 'Gulberg' },
+      'DHA Phase 5':    { AppLanguage.english: 'DHA Phase 5',    AppLanguage.urdu: 'ڈی ایچ اے فیز 5', AppLanguage.romanUrdu: 'DHA Phase 5' },
+      'Johar Town':     { AppLanguage.english: 'Johar Town',     AppLanguage.urdu: 'جوہر ٹاؤن',       AppLanguage.romanUrdu: 'Johar Town' },
+      'G-11':           { AppLanguage.english: 'G-11',           AppLanguage.urdu: 'جی الیون',        AppLanguage.romanUrdu: 'G-11' },
+      'F-6':            { AppLanguage.english: 'F-6',            AppLanguage.urdu: 'ایف سکس',         AppLanguage.romanUrdu: 'F-6' },
+      'I-9':            { AppLanguage.english: 'I-9',            AppLanguage.urdu: 'آئی نائن',        AppLanguage.romanUrdu: 'I-9' },
+      'AC Repair':      { AppLanguage.english: 'AC Repair',      AppLanguage.urdu: 'اے سی کی مرمت',  AppLanguage.romanUrdu: 'AC Repair' },
+      'Plumber':        { AppLanguage.english: 'Plumber',        AppLanguage.urdu: 'پلمبر (نل ساز)', AppLanguage.romanUrdu: 'Plumber' },
+      'Electrician':    { AppLanguage.english: 'Electrician',    AppLanguage.urdu: 'الیکٹریشن',       AppLanguage.romanUrdu: 'Electrician' },
     };
-
-    return localizedValues[key]?[lang] ?? key;
+    return v[key]?[lang] ?? key;
   }
 }
 
-// Reusable Language Switcher Row
+// ══════════════════════════════════════════════════════════
+// SHARED WIDGETS
+// ══════════════════════════════════════════════════════════
 class LanguageSwitcherRow extends StatelessWidget {
   const LanguageSwitcherRow({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final config = LanguageConfiguration.of(context);
+    final config  = LanguageConfiguration.of(context);
     final current = config?.currentLanguage ?? AppLanguage.romanUrdu;
-    final isUrdu = current == AppLanguage.urdu;
+    final isUrdu  = current == AppLanguage.urdu;
 
-    return Row(
-      mainAxisAlignment: isUrdu ? MainAxisAlignment.start : MainAxisAlignment.end,
+    final chips = Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        _buildLangChip(context, 'English', AppLanguage.english, current == AppLanguage.english),
-        const SizedBox(width: 6),
-        _buildLangChip(context, 'اردو', AppLanguage.urdu, current == AppLanguage.urdu),
-        const SizedBox(width: 6),
-        _buildLangChip(context, 'Roman', AppLanguage.romanUrdu, current == AppLanguage.romanUrdu),
+        _chip(context, 'EN',    AppLanguage.english,   current == AppLanguage.english),
+        const SizedBox(width: 5),
+        _chip(context, 'اردو', AppLanguage.urdu,       current == AppLanguage.urdu),
+        const SizedBox(width: 5),
+        _chip(context, 'Roman', AppLanguage.romanUrdu, current == AppLanguage.romanUrdu),
       ],
+    );
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: Colors.white.withOpacity(0.25)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: isUrdu ? [_logoutBtn(context), chips] : [chips, _logoutBtn(context)],
+      ),
     );
   }
 
-  Widget _buildLangChip(BuildContext context, String label, AppLanguage lang, bool isSelected) {
+  Widget _chip(BuildContext context, String label, AppLanguage lang, bool selected) {
     return GestureDetector(
       onTap: () => LanguageConfiguration.of(context)?.onLanguageChanged(lang),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        duration: const Duration(milliseconds: 220),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF0D9488) : Colors.white,
+          color: selected ? Colors.white.withOpacity(0.25) : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isSelected ? Colors.transparent : const Color(0xFFCBD5E1)),
+          border: selected ? Border.all(color: Colors.white.withOpacity(0.5)) : null,
         ),
-        child: Text(
-          label,
+        child: Text(label,
           style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            color: isSelected ? Colors.white : const Color(0xFF475569),
-          ),
+            fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.3,
+            color: selected ? Colors.white : Colors.white.withOpacity(0.65),
+          )),
+      ),
+    );
+  }
+
+  Widget _logoutBtn(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const CreateAccountPage()), (r) => false),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        decoration: BoxDecoration(
+          color: Colors.red.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.red.withOpacity(0.4)),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: const [
+          Icon(Icons.logout_rounded, size: 12, color: Colors.redAccent),
+          SizedBox(width: 5),
+          Text('Logout', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.redAccent)),
+        ]),
+      ),
+    );
+  }
+}
+
+class PrimaryButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onPressed;
+  final IconData? icon;
+  const PrimaryButton({Key? key, required this.label, required this.onPressed, this.icon}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity, height: 54,
+      decoration: BoxDecoration(
+        gradient: AppGradients.primary,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.40), blurRadius: 18, offset: const Offset(0, 7))],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onPressed,
+          child: Center(child: Row(mainAxisSize: MainAxisSize.min, children: [
+            if (icon != null) ...[Icon(icon, color: Colors.white, size: 18), const SizedBox(width: 8)],
+            Text(label, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.4)),
+          ])),
         ),
       ),
     );
   }
 }
 
-// Provider Data Model
-class ProviderModel {
-  final String name;
-  final String specialty;
-  final double rating;
-  final int reviews;
-  final bool isAvailable;
-  final int eta; 
-  final String nextAvailableIn; 
-  final String phone;
+class StyledField extends StatelessWidget {
+  final TextEditingController controller;
+  final String label, hint;
+  final IconData icon;
+  final bool isPassword, passwordHidden, isUrdu;
+  final VoidCallback? onTogglePassword;
+  final TextInputType keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
+  final String? Function(String?)? validator;
+  final void Function(String)? onChanged;
 
-  ProviderModel({
-    required this.name,
-    required this.specialty,
-    required this.rating,
-    required this.reviews,
-    required this.isAvailable,
-    required this.eta,
-    required this.nextAvailableIn,
-    required this.phone,
-  });
-}
-
-// ==========================================================
-// GLOBAL WRAPPER: PERSISTENT CHATBOT ACCROSS ALL PAGES
-// ==========================================================
-class AppNavigationWrapper extends StatefulWidget {
-  const AppNavigationWrapper({Key? key}) : super(key: key);
+  const StyledField({
+    Key? key,
+    required this.controller, required this.label, required this.hint,
+    required this.icon, required this.isUrdu,
+    this.isPassword = false, this.passwordHidden = true,
+    this.onTogglePassword, this.keyboardType = TextInputType.text,
+    this.inputFormatters, this.validator, this.onChanged,
+  }) : super(key: key);
 
   @override
-  State<AppNavigationWrapper> createState() => _AppNavigationWrapperState();
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: isUrdu ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 7, left: 2, right: 2),
+          child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textMid, letterSpacing: 0.5)),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.border),
+            boxShadow: [BoxShadow(color: AppColors.cardShadow, blurRadius: 8, offset: const Offset(0, 2))],
+          ),
+          child: TextFormField(
+            controller: controller,
+            keyboardType: keyboardType,
+            inputFormatters: inputFormatters,
+            obscureText: isPassword && passwordHidden,
+            textAlign: isUrdu ? TextAlign.right : TextAlign.left,
+            onChanged: onChanged,
+            validator: validator,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textDark),
+            decoration: InputDecoration(
+              prefixIcon: isUrdu ? null : Icon(icon, color: AppColors.primary, size: 20),
+              suffixIcon: isUrdu
+                  ? (isPassword
+                      ? IconButton(icon: Icon(passwordHidden ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: AppColors.textLight, size: 20), onPressed: onTogglePassword)
+                      : Icon(icon, color: AppColors.primary, size: 20))
+                  : (isPassword
+                      ? IconButton(icon: Icon(passwordHidden ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: AppColors.textLight, size: 20), onPressed: onTogglePassword)
+                      : null),
+              hintText: hint,
+              hintStyle: const TextStyle(color: AppColors.textLight, fontSize: 13),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// PROVIDER MODEL
+// ══════════════════════════════════════════════════════════
+class ProviderModel {
+  final String name, specialty, nextAvailableIn, phone;
+  final double rating;
+  final int reviews, eta;
+  final bool isAvailable;
+  ProviderModel({required this.name, required this.specialty, required this.rating, required this.reviews, required this.isAvailable, required this.eta, required this.nextAvailableIn, required this.phone});
+}
+
+// ══════════════════════════════════════════════════════════
+// GLOBAL WRAPPER
+// ══════════════════════════════════════════════════════════
+class AppNavigationWrapper extends StatefulWidget {
+  const AppNavigationWrapper({Key? key}) : super(key: key);
+  @override State<AppNavigationWrapper> createState() => _AppNavigationWrapperState();
 }
 
 class _AppNavigationWrapperState extends State<AppNavigationWrapper> {
-  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  final GlobalKey<NavigatorState> _navKey = GlobalKey<NavigatorState>();
 
   @override
   Widget build(BuildContext context) {
     final isUrdu = LanguageConfiguration.of(context)?.currentLanguage == AppLanguage.urdu;
-
     return Scaffold(
-      // FLOATING ACTION BUTTON ACCROSS EVERY ROUTE WINDOW (FIXED ATTRIBUTES)
-      floatingActionButtonLocation: isUrdu 
-          ? FloatingActionButtonLocation.startFloat 
-          : FloatingActionButtonLocation.endFloat,
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFF0F766E),
-        child: const Icon(Icons.chat_rounded, color: Colors.white),
-        onPressed: () {
-          showModalBottomSheet(
-            context: context,
-            isScrollControlled: true,
-            backgroundColor: Colors.transparent,
-            builder: (context) => const ChatBotWidget(),
-          );
-        },
+      floatingActionButtonLocation: isUrdu ? FloatingActionButtonLocation.startFloat : FloatingActionButtonLocation.endFloat,
+      floatingActionButton: Container(
+        decoration: BoxDecoration(
+          gradient: AppGradients.primary, shape: BoxShape.circle,
+          boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.45), blurRadius: 20, offset: const Offset(0, 6))],
+        ),
+        child: FloatingActionButton(
+          backgroundColor: Colors.transparent, elevation: 0,
+          child: const Icon(Icons.chat_bubble_rounded, color: Colors.white, size: 26),
+          onPressed: () => showModalBottomSheet(
+            context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
+            builder: (_) => const ChatBotWidget(),
+          ),
+        ),
       ),
       body: Navigator(
-        key: _navigatorKey,
-        onGenerateRoute: (RouteSettings settings) {
-          return MaterialPageRoute(
-            builder: (BuildContext context) => const CreateAccountPage(),
-          );
-        },
+        key: _navKey,
+        onGenerateRoute: (_) => MaterialPageRoute(builder: (_) => const CreateAccountPage()),
       ),
     );
   }
 }
 
-// ==========================================
-// PAGE: CREATE ACCOUNT / SIGN UP SCREEN
-// ==========================================
+// ══════════════════════════════════════════════════════════
+// PAGE: CREATE ACCOUNT
+// ══════════════════════════════════════════════════════════
 class CreateAccountPage extends StatefulWidget {
   const CreateAccountPage({Key? key}) : super(key: key);
-
-  @override
-  State<CreateAccountPage> createState() => _CreateAccountPageState();
+  @override State<CreateAccountPage> createState() => _CreateAccountPageState();
 }
 
 class _CreateAccountPageState extends State<CreateAccountPage> {
-  final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _passwordController = TextEditingController();
-  
-  bool _isPasswordHidden = true;
-  String _strengthText = '';
-  Color _strengthColor = Colors.transparent;
+  final _formKey      = GlobalKey<FormState>();
+  final _nameCtrl     = TextEditingController();
+  final _emailCtrl    = TextEditingController();
+  final _phoneCtrl    = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+  bool   _pwdHidden       = true;
+  String _strengthText    = '';
+  Color  _strengthColor   = Colors.transparent;
   double _strengthProgress = 0.0;
 
-  void _checkPasswordStrength(String password) {
-    if (password.isEmpty) {
-      setState(() {
-        _strengthText = '';
-        _strengthColor = Colors.transparent;
-        _strengthProgress = 0.0;
-      });
-      return;
-    }
-
-    int score = 0;
-    if (password.length >= 6) score++; 
-    if (password.contains(RegExp(r'[A-Z]')) && password.contains(RegExp(r'[a-z]'))) score++; 
-    if (password.contains(RegExp(r'[0-9]'))) score++; 
-    if (password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'))) score++; 
-
+  void _checkStrength(String pw) {
+    if (pw.isEmpty) { setState(() { _strengthText = ''; _strengthColor = Colors.transparent; _strengthProgress = 0; }); return; }
+    int s = 0;
+    if (pw.length >= 6) s++;
+    if (pw.contains(RegExp(r'[A-Z]')) && pw.contains(RegExp(r'[a-z]'))) s++;
+    if (pw.contains(RegExp(r'[0-9]'))) s++;
+    if (pw.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'))) s++;
     setState(() {
-      if (score <= 2) {
-        _strengthText = 'Weak 🔴';
-        _strengthColor = Colors.red;
-        _strengthProgress = 0.33;
-      } else if (score == 3) {
-        _strengthText = 'Medium 🟡';
-        _strengthColor = Colors.orange;
-        _strengthProgress = 0.66;
-      } else if (score >= 4) {
-        _strengthText = 'Strong 🟢';
-        _strengthColor = Colors.green;
-        _strengthProgress = 1.0;
-      }
+      if (s <= 2)       { _strengthText = 'Weak 🔴';   _strengthColor = Colors.red;    _strengthProgress = 0.33; }
+      else if (s == 3)  { _strengthText = 'Medium 🟡'; _strengthColor = Colors.orange; _strengthProgress = 0.66; }
+      else              { _strengthText = 'Strong 🟢';  _strengthColor = Colors.green;  _strengthProgress = 1.0; }
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final isUrdu = LanguageConfiguration.of(context)?.currentLanguage == AppLanguage.urdu;
-    
+    final lang   = LanguageConfiguration.of(context)?.currentLanguage ?? AppLanguage.romanUrdu;
+
     return Scaffold(
-      body: SafeArea(
-        child: GestureDetector(
-          onTap: () => FocusScope.of(context).unfocus(),
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 16.0),
-            child: Form(
-              key: _formKey,
+      backgroundColor: AppColors.bg,
+      body: AnimatedBackgroundIcons(
+        darkMode: false,
+        child: SafeArea(
+          child: GestureDetector(
+            onTap: () => FocusScope.of(context).unfocus(),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
               child: Column(
-                crossAxisAlignment: isUrdu ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                 children: [
-                  const LanguageSwitcherRow(),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: isUrdu ? MainAxisAlignment.end : MainAxisAlignment.start,
-                    children: [
-                      if (isUrdu) ...[
-                        Text(LocalizedStrings.get(context, 'appName'), style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F766E))),
-                        const SizedBox(width: 8),
-                      ],
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0D9488).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(Icons.handyman_rounded, color: Color(0xFF0D9488), size: 20),
-                      ),
-                      if (!isUrdu) ...[
-                        const SizedBox(width: 8),
-                        Text(LocalizedStrings.get(context, 'appName'), style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0F766E))),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    LocalizedStrings.get(context, 'signUpTitle'),
-                    textAlign: isUrdu ? TextAlign.right : TextAlign.left,
-                    style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: Color(0xFF0F172A), height: 1.2),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    LocalizedStrings.get(context, 'signUpSub'), 
-                    textAlign: isUrdu ? TextAlign.right : TextAlign.left,
-                    style: const TextStyle(color: Color(0xFF64748B), fontSize: 13),
-                  ),
-                  const SizedBox(height: 26),
-
-                  _buildInputFieldLabel(LocalizedStrings.get(context, 'fullNameLabel')),
+                  // Hero
                   Container(
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFE2E8F0))),
-                    child: TextFormField(
-                      controller: _nameController,
-                      textAlign: isUrdu ? TextAlign.right : TextAlign.left,
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                      decoration: InputDecoration(
-                        prefixIcon: isUrdu ? null : const Icon(Icons.person_outline, color: Color(0xFF94A3B8), size: 20),
-                        suffixIcon: isUrdu ? const Icon(Icons.person_outline, color: Color(0xFF94A3B8), size: 20) : null,
-                        hintText: 'Anum Ejaz',
-                        hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 14),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      ),
-                      validator: (value) => (value == null || value.trim().isEmpty) ? 'Required Field' : null,
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+                    decoration: const BoxDecoration(
+                      gradient: AppGradients.hero,
+                      borderRadius: BorderRadius.vertical(bottom: Radius.circular(36)),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  _buildInputFieldLabel(LocalizedStrings.get(context, 'emailLabel')),
-                  Container(
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFE2E8F0))),
-                    child: TextFormField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      textAlign: isUrdu ? TextAlign.right : TextAlign.left,
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                      decoration: InputDecoration(
-                        prefixIcon: isUrdu ? null : const Icon(Icons.mail_outline, color: Color(0xFF94A3B8), size: 20),
-                        suffixIcon: isUrdu ? const Icon(Icons.mail_outline, color: Color(0xFF94A3B8), size: 20) : null,
-                        hintText: 'name@example.com',
-                        hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 14),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) return 'Field cannot be empty';
-                        final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-                        if (!emailRegex.hasMatch(value.trim())) return 'Invalid Email Format';
-                        return null;
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  _buildInputFieldLabel(LocalizedStrings.get(context, 'mobileLabel')),
-                  Container(
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFE2E8F0))),
-                    child: TextFormField(
-                      controller: _phoneController,
-                      keyboardType: TextInputType.phone,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(11)],
-                      textAlign: isUrdu ? TextAlign.right : TextAlign.left,
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                      decoration: InputDecoration(
-                        prefixIcon: isUrdu ? null : const Icon(Icons.phone_android_outlined, color: Color(0xFF94A3B8), size: 20),
-                        suffixIcon: isUrdu ? const Icon(Icons.phone_android_outlined, color: Color(0xFF94A3B8), size: 20) : null,
-                        hintText: '03001234567',
-                        hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 14),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) return 'Required Field';
-                        if (value.length < 11) return 'Must be 11 digits';
-                        return null;
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  _buildInputFieldLabel(LocalizedStrings.get(context, 'passwordLabel')),
-                  Container(
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFE2E8F0))),
-                    child: TextFormField(
-                      controller: _passwordController,
-                      obscureText: _isPasswordHidden,
-                      onChanged: _checkPasswordStrength, 
-                      textAlign: isUrdu ? TextAlign.right : TextAlign.left,
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                      decoration: InputDecoration(
-                        prefixIcon: const Icon(Icons.lock_outline, color: Color(0xFF94A3B8), size: 20),
-                        hintText: '••••••••',
-                        hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 14),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                        suffixIcon: IconButton(
-                          icon: Icon(_isPasswordHidden ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: const Color(0xFF94A3B8), size: 20),
-                          onPressed: () => setState(() => _isPasswordHidden = !_isPasswordHidden),
-                        ),
-                      ),
-                      validator: (value) => (value == null || value.length < 6) ? 'Password too short' : null,
-                    ),
-                  ),
-
-                  if (_passwordController.text.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Column(
+                    child: Column(
                       crossAxisAlignment: isUrdu ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                       children: [
-                        LinearProgressIndicator(value: _strengthProgress, backgroundColor: const Color(0xFFE2E8F0), valueColor: AlwaysStoppedAnimation<Color>(_strengthColor), minHeight: 4),
-                        const SizedBox(height: 4),
-                        Text(_strengthText, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _strengthColor)),
+                        const LanguageSwitcherRow(),
+                        const SizedBox(height: 28),
+                        Row(
+                          mainAxisAlignment: isUrdu ? MainAxisAlignment.end : MainAxisAlignment.start,
+                          children: [
+                            if (!isUrdu) ...[
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(14)),
+                                child: const Icon(Icons.handyman_rounded, color: Colors.white, size: 24),
+                              ),
+                              const SizedBox(width: 12),
+                            ],
+                            Text(LocalizedStrings.get(context, 'appName'),
+                              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 0.3)),
+                            if (isUrdu) ...[
+                              const SizedBox(width: 12),
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), borderRadius: BorderRadius.circular(14)),
+                                child: const Icon(Icons.handyman_rounded, color: Colors.white, size: 24),
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        Text(LocalizedStrings.get(context, 'signUpTitle'),
+                          textAlign: isUrdu ? TextAlign.right : TextAlign.left,
+                          style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900, color: Colors.white, height: 1.2)),
+                        const SizedBox(height: 8),
+                        Text(LocalizedStrings.get(context, 'signUpSub'),
+                          textAlign: isUrdu ? TextAlign.right : TextAlign.left,
+                          style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.75), height: 1.5)),
                       ],
                     ),
-                  ],
-                  
-                  const SizedBox(height: 28),
-
-                  Container(
-                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: const Color(0xFF0D9488).withOpacity(0.25), blurRadius: 15, offset: const Offset(0, 6))]),
-                    child: SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0D9488), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 0),
-                        onPressed: () {
-                          if (_formKey.currentState!.validate()) {
-                            Navigator.push(context, MaterialPageRoute(builder: (context) => const WelcomeHomePage()));
-                          }
-                        },
-                        child: Text(LocalizedStrings.get(context, 'btnSignUp'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
-                      ),
-                    ),
                   ),
-                  const SizedBox(height: 20),
-                  Center(
-                    child: GestureDetector(
-                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const WelcomeHomePage())),
-                      child: Text(LocalizedStrings.get(context, 'alreadyAccount'), style: const TextStyle(color: Color(0xFF0D9488), fontWeight: FontWeight.bold, fontSize: 13)),
+
+                  // Form
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 30),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: isUrdu ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                        children: [
+                          StyledField(controller: _nameCtrl, label: LocalizedStrings.get(context, 'fullNameLabel'), hint: 'Anum Ejaz', icon: Icons.person_outline_rounded, isUrdu: isUrdu, validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null),
+                          const SizedBox(height: 16),
+                          StyledField(controller: _emailCtrl, label: LocalizedStrings.get(context, 'emailLabel'), hint: 'name@example.com', icon: Icons.mail_outline_rounded, isUrdu: isUrdu, keyboardType: TextInputType.emailAddress,
+                            validator: (v) { if (v == null || v.trim().isEmpty) return 'Required'; if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v.trim())) return 'Invalid email'; return null; }),
+                          const SizedBox(height: 16),
+                          StyledField(controller: _phoneCtrl, label: LocalizedStrings.get(context, 'mobileLabel'), hint: '03001234567', icon: Icons.phone_android_rounded, isUrdu: isUrdu, keyboardType: TextInputType.phone,
+                            inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(11)],
+                            validator: (v) { if (v == null || v.isEmpty) return 'Required'; if (v.length < 11) return 'Must be 11 digits'; return null; }),
+                          const SizedBox(height: 16),
+                          StyledField(controller: _passwordCtrl, label: LocalizedStrings.get(context, 'passwordLabel'), hint: '••••••••', icon: Icons.lock_outline_rounded, isUrdu: isUrdu,
+                            isPassword: true, passwordHidden: _pwdHidden, onTogglePassword: () => setState(() => _pwdHidden = !_pwdHidden),
+                            onChanged: _checkStrength, validator: (v) => (v == null || v.length < 6) ? 'Too short' : null),
+
+                          if (_passwordCtrl.text.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            ClipRRect(borderRadius: BorderRadius.circular(6),
+                              child: LinearProgressIndicator(value: _strengthProgress, backgroundColor: AppColors.border, valueColor: AlwaysStoppedAnimation<Color>(_strengthColor), minHeight: 5)),
+                            const SizedBox(height: 5),
+                            Align(alignment: isUrdu ? Alignment.centerRight : Alignment.centerLeft,
+                              child: Text(_strengthText, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _strengthColor))),
+                          ],
+
+                          const SizedBox(height: 30),
+                          PrimaryButton(
+                            label: LocalizedStrings.get(context, 'btnSignUp'),
+                            icon: Icons.arrow_forward_rounded,
+                            onPressed: () { if (_formKey.currentState!.validate()) Navigator.push(context, MaterialPageRoute(builder: (_) => const WelcomeHomePage())); },
+                          ),
+                          const SizedBox(height: 20),
+                          Center(
+                            child: GestureDetector(
+                              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WelcomeHomePage())),
+                              child: RichText(text: TextSpan(
+                                text: lang == AppLanguage.urdu ? 'پہلے سے اکاؤنٹ ہے؟ ' : (lang == AppLanguage.english ? 'Already have an account? ' : 'Pehle se account hai? '),
+                                style: const TextStyle(color: AppColors.textMid, fontSize: 13),
+                                children: [TextSpan(
+                                  text: lang == AppLanguage.urdu ? 'لاگ ان کریں' : 'Log In',
+                                  style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w800),
+                                )],
+                              )),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -567,67 +643,91 @@ class _CreateAccountPageState extends State<CreateAccountPage> {
       ),
     );
   }
-
-  Widget _buildInputFieldLabel(String labelText) {
-    final isUrdu = LanguageConfiguration.of(context)?.currentLanguage == AppLanguage.urdu;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6, top: 4),
-      child: Align(
-        alignment: isUrdu ? Alignment.centerRight : Alignment.centerLeft,
-        child: Text(labelText, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF475569))),
-      ),
-    );
-  }
 }
 
-// ==========================================
-// PAGE 1: WELCOME HOME PAGE 
-// ==========================================
+// ══════════════════════════════════════════════════════════
+// PAGE 1: WELCOME HOME
+// ══════════════════════════════════════════════════════════
 class WelcomeHomePage extends StatelessWidget {
   const WelcomeHomePage({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 10),
+      backgroundColor: AppColors.bg,
+      body: AnimatedBackgroundIcons(
+        darkMode: false,
+        child: SafeArea(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const LanguageSwitcherRow(),
-              const Spacer(),
               Container(
-                width: 90,
-                height: 90,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [Color(0xFF0F766E), Color(0xFF14B8A6)]),
-                  borderRadius: BorderRadius.circular(24),
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+                decoration: const BoxDecoration(
+                  gradient: AppGradients.hero,
+                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
                 ),
-                child: const Icon(Icons.handyman_rounded, size: 44, color: Colors.white),
+                child: Column(children: [
+                  const LanguageSwitcherRow(),
+                  const SizedBox(height: 30),
+                  Container(
+                    width: 80, height: 80,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.18),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.5),
+                    ),
+                    child: const Icon(Icons.handyman_rounded, size: 40, color: Colors.white),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(LocalizedStrings.get(context, 'appName'),
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.white)),
+                  const SizedBox(height: 6),
+                  Text(LocalizedStrings.get(context, 'tagline'),
+                    style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.75)), textAlign: TextAlign.center),
+                ]),
               ),
-              const SizedBox(height: 20),
-              Text(LocalizedStrings.get(context, 'appName'), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: Color(0xFF0F172A))),
-              const SizedBox(height: 6),
-              Text(LocalizedStrings.get(context, 'tagline'), style: const TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
-              const SizedBox(height: 40),
-              GestureDetector(
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const LocationPage())),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18), border: Border.all(color: const Color(0xFFE2E8F0))),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.search_rounded, color: Color(0xFF0D9488), size: 22),
+
+              const Spacer(),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 22),
+                child: GestureDetector(
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LocationPage())),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 17, horizontal: 20),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: AppColors.border),
+                      boxShadow: [BoxShadow(color: AppColors.cardShadow, blurRadius: 16, offset: const Offset(0, 4))],
+                    ),
+                    child: Row(children: [
+                      Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(gradient: AppGradients.primary, borderRadius: BorderRadius.circular(10)),
+                        child: const Icon(Icons.search_rounded, color: Colors.white, size: 18),
+                      ),
                       const SizedBox(width: 14),
-                      Expanded(child: Text(LocalizedStrings.get(context, 'searchHint'), style: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)))),
-                    ],
+                      Expanded(child: Text(LocalizedStrings.get(context, 'searchHint'),
+                        style: const TextStyle(fontSize: 13, color: AppColors.textLight, fontWeight: FontWeight.w500))),
+                      const Icon(Icons.arrow_forward_ios_rounded, color: AppColors.primary, size: 14),
+                    ]),
                   ),
                 ),
               ),
+
               const Spacer(),
-              Text(LocalizedStrings.get(context, 'chatPrompt'), style: TextStyle(fontSize: 12, color: Colors.grey[400], fontWeight: FontWeight.w500)),
-              const SizedBox(height: 10),
+
+              Padding(
+                padding: const EdgeInsets.only(bottom: 18),
+                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Container(width: 7, height: 7, decoration: const BoxDecoration(color: AppColors.primaryLight, shape: BoxShape.circle)),
+                  const SizedBox(width: 8),
+                  Text(LocalizedStrings.get(context, 'chatPrompt'),
+                    style: const TextStyle(fontSize: 12, color: AppColors.textLight, fontWeight: FontWeight.w500)),
+                ]),
+              ),
             ],
           ),
         ),
@@ -636,106 +736,114 @@ class WelcomeHomePage extends StatelessWidget {
   }
 }
 
-// ==========================================
-// PAGE 2: LOCATION SELECTOR PAGE
-// ==========================================
+// ══════════════════════════════════════════════════════════
+// PAGE 2: LOCATION SELECTOR
+// ══════════════════════════════════════════════════════════
 class LocationPage extends StatefulWidget {
   const LocationPage({Key? key}) : super(key: key);
-
-  @override
-  State<LocationPage> createState() => _LocationPageState();
+  @override State<LocationPage> createState() => _LocationPageState();
 }
 
 class _LocationPageState extends State<LocationPage> {
   String selectedCity = 'Karachi';
   String selectedArea = 'Saddar';
-
   final List<String> citiesList = ['Karachi', 'Lahore', 'Islamabad'];
   final Map<String, List<String>> cityAreasMap = {
-    'Karachi': ['Saddar', 'Gulshan-e-Iqbal', 'Clifton'],
-    'Lahore': ['Gulberg', 'DHA Phase 5', 'Johar Town'],
+    'Karachi':   ['Saddar', 'Gulshan-e-Iqbal', 'Clifton'],
+    'Lahore':    ['Gulberg', 'DHA Phase 5', 'Johar Town'],
     'Islamabad': ['G-11', 'F-6', 'I-9'],
   };
+
+  Widget _dropdown({required String value, required List<String> items, required ValueChanged<String?> onChanged, required BuildContext context}) {
+    final isUrdu = LanguageConfiguration.of(context)?.currentLanguage == AppLanguage.urdu;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: AppColors.surface, borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [BoxShadow(color: AppColors.cardShadow, blurRadius: 8, offset: const Offset(0, 2))],
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value, isExpanded: true,
+          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary),
+          style: const TextStyle(fontSize: 14, color: AppColors.textDark, fontWeight: FontWeight.w600),
+          alignment: isUrdu ? Alignment.centerRight : Alignment.centerLeft,
+          items: items.map((i) => DropdownMenuItem(value: i,
+            child: Align(alignment: isUrdu ? Alignment.centerRight : Alignment.centerLeft,
+              child: Text(LocalizedStrings.get(context, i))))).toList(),
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final isUrdu = LanguageConfiguration.of(context)?.currentLanguage == AppLanguage.urdu;
 
     return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 10),
+      backgroundColor: AppColors.bg,
+      body: AnimatedBackgroundIcons(
+        darkMode: false,
+        child: SafeArea(
           child: Column(
             crossAxisAlignment: isUrdu ? CrossAxisAlignment.end : CrossAxisAlignment.start,
             children: [
-              const LanguageSwitcherRow(),
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: isUrdu ? MainAxisAlignment.end : MainAxisAlignment.start,
-                children: [
-                  if (!isUrdu) IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF1E293B), size: 18), onPressed: () => Navigator.pop(context)),
-                  Text(LocalizedStrings.get(context, 'locationTitle'), style: const TextStyle(color: Color(0xFF1E293B), fontSize: 18, fontWeight: FontWeight.bold)),
-                  if (isUrdu) IconButton(icon: const Icon(Icons.arrow_back_ios_rounded, color: Color(0xFF1E293B), size: 18), onPressed: () => Navigator.pop(context)),
-                ],
-              ),
-              const SizedBox(height: 20),
-              Text(LocalizedStrings.get(context, 'locationSub'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
-              const SizedBox(height: 24),
-              _buildSelectionLabel(LocalizedStrings.get(context, 'cityLabel')),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFE2E8F0))),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: selectedCity,
-                    isExpanded: true,
-                    style: const TextStyle(fontSize: 15, color: Color(0xFF1E293B), fontWeight: FontWeight.w600),
-                    alignment: isUrdu ? Alignment.centerRight : Alignment.centerLeft,
-                    items: citiesList.map((c) => DropdownMenuItem(
-                      value: c, 
-                      child: Align(
-                        alignment: isUrdu ? Alignment.centerRight : Alignment.centerLeft,
-                        child: Text(LocalizedStrings.get(context, c))
-                      )
-                    )).toList(),
-                    onChanged: (val) {
-                      setState(() {
-                        selectedCity = val!;
-                        selectedArea = cityAreasMap[selectedCity]![0];
-                      });
-                    },
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              _buildSelectionLabel(LocalizedStrings.get(context, 'areaLabel')),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFE2E8F0))),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: selectedArea,
-                    isExpanded: true,
-                    alignment: isUrdu ? Alignment.centerRight : Alignment.centerLeft,
-                    items: cityAreasMap[selectedCity]!.map((a) => DropdownMenuItem(
-                      value: a, 
-                      child: Align(
-                        alignment: isUrdu ? Alignment.centerRight : Alignment.centerLeft,
-                        child: Text(LocalizedStrings.get(context, a))
-                      )
-                    )).toList(),
-                    onChanged: (val) => setState(() => selectedArea = val!),
-                  ),
-                ),
-              ),
-              const Spacer(),
-              SizedBox(
                 width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0D9488), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ServicesAndDetailsPage(city: selectedCity, area: selectedArea))),
-                  child: Text(LocalizedStrings.get(context, 'btnNext'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+                decoration: const BoxDecoration(
+                  gradient: AppGradients.hero,
+                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
+                ),
+                child: Column(
+                  crossAxisAlignment: isUrdu ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                  children: [
+                    const LanguageSwitcherRow(),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: isUrdu ? MainAxisAlignment.end : MainAxisAlignment.start,
+                      children: [
+                        if (!isUrdu) IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18), onPressed: () => Navigator.pop(context)),
+                        Text(LocalizedStrings.get(context, 'locationTitle'),
+                          style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+                        if (isUrdu) IconButton(icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white, size: 18), onPressed: () => Navigator.pop(context)),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Padding(
+                      padding: EdgeInsets.only(left: isUrdu ? 0 : 8, right: isUrdu ? 8 : 0),
+                      child: Text(LocalizedStrings.get(context, 'locationSub'),
+                        style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.75))),
+                    ),
+                  ],
+                ),
+              ),
+
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
+                  child: Column(
+                    crossAxisAlignment: isUrdu ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                    children: [
+                      _label(LocalizedStrings.get(context, 'cityLabel'), Icons.location_city_rounded),
+                      const SizedBox(height: 8),
+                      _dropdown(value: selectedCity, items: citiesList, context: context,
+                        onChanged: (v) => setState(() { selectedCity = v!; selectedArea = cityAreasMap[selectedCity]![0]; })),
+                      const SizedBox(height: 24),
+                      _label(LocalizedStrings.get(context, 'areaLabel'), Icons.map_outlined),
+                      const SizedBox(height: 8),
+                      _dropdown(value: selectedArea, items: cityAreasMap[selectedCity]!, context: context,
+                        onChanged: (v) => setState(() => selectedArea = v!)),
+                      const Spacer(),
+                      PrimaryButton(
+                        label: LocalizedStrings.get(context, 'btnNext'),
+                        icon: Icons.arrow_forward_rounded,
+                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ServicesAndDetailsPage(city: selectedCity, area: selectedArea))),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -745,57 +853,44 @@ class _LocationPageState extends State<LocationPage> {
     );
   }
 
-  Widget _buildSelectionLabel(String text) {
-    final isUrdu = LanguageConfiguration.of(context)?.currentLanguage == AppLanguage.urdu;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Align(
-        alignment: isUrdu ? Alignment.centerRight : Alignment.centerLeft,
-        child: Text(text, style: const TextStyle(fontSize: 13, color: Color(0xFF64748B), fontWeight: FontWeight.bold))
-      ),
-    );
+  Widget _label(String text, IconData icon) {
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      Icon(icon, size: 15, color: AppColors.primary),
+      const SizedBox(width: 6),
+      Text(text, style: const TextStyle(fontSize: 13, color: AppColors.textMid, fontWeight: FontWeight.w700, letterSpacing: 0.3)),
+    ]);
   }
 }
 
-// ==========================================
-// PAGE 3: DUAL LIST VIEW 
-// ==========================================
+// ══════════════════════════════════════════════════════════
+// PAGE 3: SERVICES + PROVIDERS
+// ══════════════════════════════════════════════════════════
 class ServicesAndDetailsPage extends StatefulWidget {
-  final String city;
-  final String area;
+  final String city, area;
   const ServicesAndDetailsPage({Key? key, required this.city, required this.area}) : super(key: key);
-
-  @override
-  State<ServicesAndDetailsPage> createState() => _ServicesAndDetailsPageState();
+  @override State<ServicesAndDetailsPage> createState() => _ServicesAndDetailsPageState();
 }
 
 class _ServicesAndDetailsPageState extends State<ServicesAndDetailsPage> {
   String chosenService = '';
-  bool loadingData = false;
-  List<ProviderModel> availableProvidersList = [];
-  List<ProviderModel> unavailableProvidersList = [];
+  bool   loadingData   = false;
+  List<ProviderModel> availableList   = [];
+  List<ProviderModel> unavailableList = [];
 
-  void loadServiceRowData(String type) {
-    setState(() {
-      loadingData = true;
-      chosenService = type;
-    });
-
+  void _loadProviders(String type) {
+    setState(() { loadingData = true; chosenService = type; });
     Future.delayed(const Duration(milliseconds: 300), () {
       setState(() {
-        loadingData = false;
-        availableProvidersList.clear();
-        unavailableProvidersList.clear();
-
+        loadingData = false; availableList.clear(); unavailableList.clear();
         if (type == 'AC Repair') {
-          availableProvidersList.add(ProviderModel(name: 'Ali Mohammad', specialty: 'Inverter AC Expert', rating: 4.9, reviews: 142, isAvailable: true, eta: 10, nextAvailableIn: '', phone: '03001234567'));
-          unavailableProvidersList.add(ProviderModel(name: 'Farhan Khan', specialty: 'Gas Leakage Specialist', rating: 4.3, reviews: 76, isAvailable: false, eta: 0, nextAvailableIn: '45 Mins', phone: '03019988771'));
+          availableList.add(ProviderModel(name: 'Ali Mohammad', specialty: 'Inverter AC Expert', rating: 4.9, reviews: 142, isAvailable: true, eta: 10, nextAvailableIn: '', phone: '03001234567'));
+          unavailableList.add(ProviderModel(name: 'Farhan Khan', specialty: 'Gas Leakage Specialist', rating: 4.3, reviews: 76, isAvailable: false, eta: 0, nextAvailableIn: '45 Mins', phone: '03019988771'));
         } else if (type == 'Plumber') {
-          availableProvidersList.add(ProviderModel(name: 'Ghulam Mustafa', specialty: 'Water Leakage Expert', rating: 4.8, reviews: 94, isAvailable: true, eta: 8, nextAvailableIn: '', phone: '03217654321'));
-          unavailableProvidersList.add(ProviderModel(name: 'Asif Raza', specialty: 'Sanitary Fittings Expert', rating: 4.2, reviews: 31, isAvailable: false, eta: 0, nextAvailableIn: '30 Mins', phone: '03451122334'));
+          availableList.add(ProviderModel(name: 'Ghulam Mustafa', specialty: 'Water Leakage Expert', rating: 4.8, reviews: 94, isAvailable: true, eta: 8, nextAvailableIn: '', phone: '03217654321'));
+          unavailableList.add(ProviderModel(name: 'Asif Raza', specialty: 'Sanitary Fittings Expert', rating: 4.2, reviews: 31, isAvailable: false, eta: 0, nextAvailableIn: '30 Mins', phone: '03451122334'));
         } else {
-          availableProvidersList.add(ProviderModel(name: 'Zeeshan Ahmed', specialty: 'Home Wiring Fixer', rating: 4.6, reviews: 118, isAvailable: true, eta: 15, nextAvailableIn: '', phone: '03339876543'));
-          unavailableProvidersList.add(ProviderModel(name: 'Tariq Mahmood', specialty: 'UPS Repair Specialist', rating: 4.4, reviews: 89, isAvailable: false, eta: 0, nextAvailableIn: '50 Mins', phone: '03009988776'));
+          availableList.add(ProviderModel(name: 'Zeeshan Ahmed', specialty: 'Home Wiring Fixer', rating: 4.6, reviews: 118, isAvailable: true, eta: 15, nextAvailableIn: '', phone: '03339876543'));
+          unavailableList.add(ProviderModel(name: 'Tariq Mahmood', specialty: 'UPS Repair Specialist', rating: 4.4, reviews: 89, isAvailable: false, eta: 0, nextAvailableIn: '50 Mins', phone: '03009988776'));
         }
       });
     });
@@ -804,56 +899,71 @@ class _ServicesAndDetailsPageState extends State<ServicesAndDetailsPage> {
   @override
   Widget build(BuildContext context) {
     final isUrdu = LanguageConfiguration.of(context)?.currentLanguage == AppLanguage.urdu;
-    String displayLocation = "${LocalizedStrings.get(context, widget.area)}, ${LocalizedStrings.get(context, widget.city)}";
+    final loc    = "${LocalizedStrings.get(context, widget.area)}, ${LocalizedStrings.get(context, widget.city)}";
 
     return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
+      backgroundColor: AppColors.bg,
+      body: AnimatedBackgroundIcons(
+        darkMode: false,
+        child: SafeArea(
           child: Column(
             crossAxisAlignment: isUrdu ? CrossAxisAlignment.end : CrossAxisAlignment.start,
             children: [
-              const LanguageSwitcherRow(),
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: isUrdu ? MainAxisAlignment.end : MainAxisAlignment.start,
-                children: [
-                  if (!isUrdu) IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.black87, size: 18), onPressed: () => Navigator.pop(context)),
-                  Text(displayLocation, style: const TextStyle(color: Color(0xFF0D9488), fontSize: 16, fontWeight: FontWeight.bold)),
-                  if (isUrdu) IconButton(icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.black87, size: 18), onPressed: () => Navigator.pop(context)),
-                ],
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                decoration: const BoxDecoration(
+                  gradient: AppGradients.hero,
+                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
+                ),
+                child: Column(
+                  crossAxisAlignment: isUrdu ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                  children: [
+                    const LanguageSwitcherRow(),
+                    const SizedBox(height: 18),
+                    Row(
+                      mainAxisAlignment: isUrdu ? MainAxisAlignment.end : MainAxisAlignment.start,
+                      children: [
+                        if (!isUrdu) IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18), onPressed: () => Navigator.pop(context)),
+                        const Icon(Icons.location_on_rounded, color: AppColors.accent, size: 18),
+                        const SizedBox(width: 6),
+                        Text(loc, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800)),
+                        if (isUrdu) IconButton(icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white, size: 18), onPressed: () => Navigator.pop(context)),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(LocalizedStrings.get(context, 'selectServiceTitle'),
+                      style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 13, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 12),
+                    Row(children: [
+                      _serviceBtn('AC Repair',   '❄️', const Color(0xFF0EA5E9)),
+                      const SizedBox(width: 10),
+                      _serviceBtn('Plumber',     '🔧', const Color(0xFFF59E0B)),
+                      const SizedBox(width: 10),
+                      _serviceBtn('Electrician', '⚡', const Color(0xFF22C55E)),
+                    ]),
+                  ],
+                ),
               ),
-              const SizedBox(height: 14),
-              Text(LocalizedStrings.get(context, 'selectServiceTitle'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  _buildOptionButton('AC Repair', '❄️', const Color(0xFF0284C7)),
-                  const SizedBox(width: 10),
-                  _buildOptionButton('Plumber', '🔧', const Color(0xFFD97706)),
-                  const SizedBox(width: 10),
-                  _buildOptionButton('Electrician', '⚡', const Color(0xFF16A34A)),
-                ],
-              ),
-              const SizedBox(height: 16),
+
               Expanded(
                 child: chosenService.isEmpty
-                    ? Center(child: Text(LocalizedStrings.get(context, 'selectServicePrompt'), style: TextStyle(color: Colors.grey[500], fontSize: 13)))
+                    ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.touch_app_rounded, size: 52, color: AppColors.primary.withOpacity(0.3)),
+                        const SizedBox(height: 12),
+                        Text(LocalizedStrings.get(context, 'selectServicePrompt'),
+                          style: const TextStyle(color: AppColors.textLight, fontSize: 13), textAlign: TextAlign.center),
+                      ]))
                     : loadingData
-                        ? const Center(child: CircularProgressIndicator(color: Color(0xFF0D9488)))
+                        ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
                         : ListView(
+                            padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
                             children: [
-                              Align(
-                                alignment: isUrdu ? Alignment.centerRight : Alignment.centerLeft,
-                                child: Text(LocalizedStrings.get(context, 'availableNowTitle'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F766E)))
-                              ),
-                              if (availableProvidersList.isNotEmpty) _buildAvailableCard(availableProvidersList.first),
-                              const SizedBox(height: 20),
-                              Align(
-                                alignment: isUrdu ? Alignment.centerRight : Alignment.centerLeft,
-                                child: Text(LocalizedStrings.get(context, 'busyTitle'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF64748B)))
-                              ),
-                              ...unavailableProvidersList.map((p) => _buildUnavailableCard(p)).toList(),
+                              _sectionHeader(LocalizedStrings.get(context, 'availableNowTitle'), AppColors.primary, Icons.check_circle_rounded, isUrdu),
+                              if (availableList.isNotEmpty) _availableCard(availableList.first),
+                              const SizedBox(height: 22),
+                              _sectionHeader(LocalizedStrings.get(context, 'busyTitle'), AppColors.textMid, Icons.hourglass_top_rounded, isUrdu),
+                              ...unavailableList.map(_busyCard),
                             ],
                           ),
               ),
@@ -864,143 +974,206 @@ class _ServicesAndDetailsPageState extends State<ServicesAndDetailsPage> {
     );
   }
 
-  Widget _buildAvailableCard(ProviderModel provider) {
+  Widget _sectionHeader(String text, Color color, IconData icon, bool isUrdu) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        mainAxisAlignment: isUrdu ? MainAxisAlignment.end : MainAxisAlignment.start,
+        children: isUrdu
+            ? [Text(text, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: color)), const SizedBox(width: 8), Icon(icon, size: 16, color: color)]
+            : [Icon(icon, size: 16, color: color), const SizedBox(width: 8), Text(text, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: color))],
+      ),
+    );
+  }
+
+  Widget _availableCard(ProviderModel p) {
     return Container(
-      margin: const EdgeInsets.only(top: 10),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFE2E8F0))),
-      child: Column(
-        children: [
-          ListTile(
-            title: Text(provider.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text('${provider.specialty} • ETA: ${provider.eta} Mins'),
-            trailing: const Text('🟢 Active', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+      decoration: BoxDecoration(
+        color: AppColors.surface, borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF22C55E).withOpacity(0.3)),
+        boxShadow: [BoxShadow(color: AppColors.cardShadow, blurRadius: 14, offset: const Offset(0, 4))],
+      ),
+      child: Column(children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+          child: Row(children: [
+            Container(
+              width: 50, height: 50,
+              decoration: BoxDecoration(
+                gradient: AppGradients.primary, shape: BoxShape.circle,
+                boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 3))],
+              ),
+              child: Center(child: Text(p.name[0], style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900))),
+            ),
+            const SizedBox(width: 14),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(p.name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: AppColors.textDark)),
+              const SizedBox(height: 3),
+              Text(p.specialty, style: const TextStyle(fontSize: 12, color: AppColors.textMid)),
+              const SizedBox(height: 6),
+              Row(children: [
+                const Icon(Icons.star_rounded, color: AppColors.accent, size: 14),
+                const SizedBox(width: 3),
+                Text('${p.rating}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textDark)),
+                const SizedBox(width: 6),
+                Text('(${p.reviews} reviews)', style: const TextStyle(fontSize: 11, color: AppColors.textLight)),
+              ]),
+            ])),
+            Column(children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF22C55E).withOpacity(0.12), borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFF22C55E).withOpacity(0.4)),
+                ),
+                child: const Text('🟢 Active', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF16A34A))),
+              ),
+              const SizedBox(height: 6),
+              Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.access_time_rounded, size: 12, color: AppColors.textLight),
+                const SizedBox(width: 3),
+                Text('${p.eta} min', style: const TextStyle(fontSize: 11, color: AppColors.textMid, fontWeight: FontWeight.w600)),
+              ]),
+            ]),
+          ]),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Container(
+            width: double.infinity, height: 44,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [Color(0xFF16A34A), Color(0xFF22C55E)]),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [BoxShadow(color: const Color(0xFF22C55E).withOpacity(0.35), blurRadius: 10, offset: const Offset(0, 4))],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12), onTap: () {},
+                child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  const Icon(Icons.phone_rounded, color: Colors.white, size: 18),
+                  const SizedBox(width: 8),
+                  Text('Call ${p.phone}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
+                ]),
+              ),
+            ),
           ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.green, minimumSize: const Size(double.infinity, 40)),
-            onPressed: () {},
-            icon: const Icon(Icons.phone, color: Colors.white),
-            label: Text('Call ${provider.phone}', style: const TextStyle(color: Colors.white)),
-          )
-        ],
-      ),
+        ),
+      ]),
     );
   }
 
-  Widget _buildUnavailableCard(ProviderModel provider) {
+  Widget _busyCard(ProviderModel p) {
     return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        title: Text(provider.name),
-        subtitle: Text('Busy • Available in: ${provider.nextAvailableIn}'),
-        trailing: const Icon(Icons.hourglass_empty, color: Colors.amber),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surface, borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [BoxShadow(color: AppColors.cardShadow, blurRadius: 8, offset: const Offset(0, 2))],
       ),
+      child: Row(children: [
+        Container(
+          width: 44, height: 44,
+          decoration: BoxDecoration(color: AppColors.textLight.withOpacity(0.1), shape: BoxShape.circle),
+          child: Center(child: Text(p.name[0], style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.textMid))),
+        ),
+        const SizedBox(width: 12),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(p.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: AppColors.textDark)),
+          const SizedBox(height: 3),
+          Text(p.specialty, style: const TextStyle(fontSize: 12, color: AppColors.textLight)),
+        ])),
+        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(color: AppColors.accent.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
+            child: const Text('Busy', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFFD97706))),
+          ),
+          const SizedBox(height: 4),
+          Text('in ${p.nextAvailableIn}', style: const TextStyle(fontSize: 11, color: AppColors.textMid, fontWeight: FontWeight.w600)),
+        ]),
+      ]),
     );
   }
 
-  Widget _buildOptionButton(String name, String badge, Color activeBorderColor) {
-    bool isActive = chosenService == name;
+  Widget _serviceBtn(String name, String emoji, Color activeColor) {
+    final active = chosenService == name;
     return Expanded(
       child: GestureDetector(
-        onTap: () => loadServiceRowData(name),
-        child: Container(
-          height: 70,
+        onTap: () => _loadProviders(name),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          height: 72,
           decoration: BoxDecoration(
-            color: isActive ? Colors.white : const Color(0xFFE2E8F0).withOpacity(0.4),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: isActive ? activeBorderColor : Colors.transparent, width: 2),
+            color: active ? activeColor.withOpacity(0.15) : Colors.white.withOpacity(0.10),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: active ? activeColor : Colors.white.withOpacity(0.2), width: active ? 2 : 1),
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(badge, style: const TextStyle(fontSize: 20)),
-              Text(
-                LocalizedStrings.get(context, name),
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isActive ? activeBorderColor : Colors.grey),
-              ),
-            ],
-          ),
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Text(emoji, style: const TextStyle(fontSize: 22)),
+            const SizedBox(height: 4),
+            Text(LocalizedStrings.get(context, name),
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700,
+                color: active ? activeColor : Colors.white.withOpacity(0.8))),
+          ]),
         ),
       ),
     );
   }
 }
 
-// ==========================================
-// TRI-LINGUAL AI CHATBOT AGENT ENGINE
-// ==========================================
+// ══════════════════════════════════════════════════════════
+// CHATBOT WIDGET
+// ══════════════════════════════════════════════════════════
 class ChatBotWidget extends StatefulWidget {
   const ChatBotWidget({Key? key}) : super(key: key);
-
-  @override
-  State<ChatBotWidget> createState() => _ChatBotWidgetState();
+  @override State<ChatBotWidget> createState() => _ChatBotWidgetState();
 }
 
 class _ChatBotWidgetState extends State<ChatBotWidget> {
   final List<Map<String, String>> _messages = [];
-  final TextEditingController _chatController = TextEditingController();
+  final TextEditingController _ctrl = TextEditingController();
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_messages.isEmpty) {
       final lang = LanguageConfiguration.of(context)?.currentLanguage ?? AppLanguage.romanUrdu;
-      String greeting = "Assalam-o-Alaikum! Main Assistant hoon. 🤖 Main Roman Urdu, Urdu aur English teeno samajh sakta hoon. Bataiye kya kaam hai?";
-      if (lang == AppLanguage.english) greeting = "Hello! I am your AI Agent. 🤖 I can support English, Urdu, and Roman Urdu. How can I help you?";
-      if (lang == AppLanguage.urdu) greeting = "السلام علیکم! میں آپ کا اے آئی اسسٹنٹ ہوں۔ 🤖 میں اردو، انگلش اور رومن اردو سمجھ سکتا ہوں۔ بتائیے کیا خدمت کروں؟";
-      
-      _messages.add({"sender": "bot", "text": greeting});
+      String g = "Assalam-o-Alaikum! Main Assistant hoon. 🤖 Main Roman Urdu, Urdu aur English teeno samajh sakta hoon. Bataiye kya kaam hai?";
+      if (lang == AppLanguage.english) g = "Hello! I am your AI Agent. 🤖 I can support English, Urdu, and Roman Urdu. How can I help you?";
+      if (lang == AppLanguage.urdu)    g = "السلام علیکم! میں آپ کا اے آئی اسسٹنٹ ہوں۔ 🤖 میں اردو، انگلش اور رومن اردو سمجھ سکتا ہوں۔ بتائیے کیا خدمت کروں؟";
+      _messages.add({"sender": "bot", "text": g});
     }
   }
 
-  void _sendMessage() {
-    if (_chatController.text.trim().isEmpty) return;
-    String userText = _chatController.text.trim();
-    
-    setState(() {
-      _messages.add({"sender": "user", "text": userText});
-      _chatController.clear();
-    });
+  void _send() {
+    if (_ctrl.text.trim().isEmpty) return;
+    final txt = _ctrl.text.trim();
+    setState(() { _messages.add({"sender": "user", "text": txt}); _ctrl.clear(); });
 
     Future.delayed(const Duration(milliseconds: 400), () {
-      String botReply = "Processing query details...";
-      String lowerInput = userText.toLowerCase();
+      final lower    = txt.toLowerCase();
+      final isScript = txt.contains(RegExp(r'[\u0600-\u06FF]'));
+      final isEn     = lower.contains('need') || lower.contains('help') || lower.contains('repair') || lower.contains('plumber');
+      String reply;
 
-      bool isEnglish = lowerInput.contains('need') || lowerInput.contains('help') || lowerInput.contains('repair') || lowerInput.contains('plumber');
-      bool isUrduScript = userText.contains(RegExp(r'[\u0600-\u06FF]'));
-
-      if (isUrduScript) {
-        if (userText.contains('اے سی') || userText.contains('گرمی')) {
-          botReply = "❄️ ہمارے بہترین اے سی ٹیکنیشن علی محمد اس وقت دستیاب ہیں۔";
-        } else if (userText.contains('پلمبر') || userText.contains('پانی')) {
-          botReply = "🔧 پانی کے مسئلے کے لیے غلام مصطفیٰ صاحب فوری دستیاب ہیں۔";
-        } else {
-          botReply = "⚡ بجلی کے کام کے لیے ذیشان احمد حاضر ہیں۔";
-        }
-      } else if (isEnglish) {
-        if (lowerInput.contains('ac') || lowerInput.contains('cooling')) {
-          botReply = "❄️ AC Expert Ali Mohammad is available right now with a 10 min ETA.";
-        } else if (lowerInput.contains('plumber') || lowerInput.contains('leak')) {
-          botReply = "🔧 Plumber Ghulam Mustafa is ready to assist you in your area.";
-        } else {
-          botReply = "⚡ Electrician Zeeshan Ahmed is active and can reach you soon.";
-        }
+      if (isScript) {
+        if (txt.contains('اے سی') || txt.contains('گرمی')) reply = "❄️ ہمارے بہترین اے سی ٹیکنیشن علی محمد اس وقت دستیاب ہیں۔";
+        else if (txt.contains('پلمبر') || txt.contains('پانی')) reply = "🔧 پانی کے مسئلے کے لیے غلام مصطفیٰ صاحب فوری دستیاب ہیں۔";
+        else reply = "⚡ بجلی کے کام کے لیے ذیشان احمد حاضر ہیں۔";
+      } else if (isEn) {
+        if (lower.contains('ac') || lower.contains('cooling')) reply = "❄️ AC Expert Ali Mohammad is available right now with a 10 min ETA.";
+        else if (lower.contains('plumber') || lower.contains('leak')) reply = "🔧 Plumber Ghulam Mustafa is ready to assist you in your area.";
+        else reply = "⚡ Electrician Zeeshan Ahmed is active and can reach you soon.";
       } else {
-        if (lowerInput.contains('ac') || lowerInput.contains('garmi')) {
-          botReply = "❄️ AC repair ke liye Ali Mohammad is waqt active aur available hain.";
-        } else if (lowerInput.contains('leak') || lowerInput.contains('plumber')) {
-          botReply = "🔧 Water leakage ke liye Ghulam Mustafa sahab available hain.";
-        } else {
-          botReply = "⚡ Electrician wiring fix karne ke liye tayyar hain.";
-        }
+        if (lower.contains('ac') || lower.contains('garmi')) reply = "❄️ AC repair ke liye Ali Mohammad is waqt active aur available hain.";
+        else if (lower.contains('leak') || lower.contains('plumber')) reply = "🔧 Water leakage ke liye Ghulam Mustafa sahab available hain.";
+        else reply = "⚡ Electrician wiring fix karne ke liye tayyar hain.";
       }
 
-      setState(() {
-        _messages.add({"sender": "bot", "text": botReply});
-      });
+      setState(() => _messages.add({"sender": "bot", "text": reply}));
     });
   }
 
@@ -1009,56 +1182,96 @@ class _ChatBotWidgetState extends State<ChatBotWidget> {
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
-        height: MediaQuery.of(context).size.height * 0.60,
-        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-        child: Column(
-          children: [
-            Container(
+        height: MediaQuery.of(context).size.height * 0.62,
+        decoration: const BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+        child: Column(children: [
+          const SizedBox(height: 10),
+          Container(width: 42, height: 4, decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(4))),
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            padding: const EdgeInsets.fromLTRB(20, 14, 16, 14),
+            decoration: const BoxDecoration(gradient: AppGradients.primary),
+            child: Row(children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(10)),
+                child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 20),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('AI Multi-Lang Orchestrator', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14)),
+                Text('Online • Tri-lingual support', style: TextStyle(color: Colors.white60, fontSize: 11)),
+              ])),
+              IconButton(icon: const Icon(Icons.close_rounded, color: Colors.white), onPressed: () => Navigator.pop(context)),
+            ]),
+          ),
+
+          Expanded(
+            child: ListView.builder(
               padding: const EdgeInsets.all(16),
-              color: const Color(0xFF0F766E),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('AI Multi-Lang Orchestrator', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  IconButton(icon: const Icon(Icons.close, color: Colors.white), onPressed: () => Navigator.pop(context)),
-                ],
-              ),
-            ),
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: _messages.length,
-                itemBuilder: (context, i) {
-                  bool isUser = _messages[i]["sender"] == "user";
-                  return Align(
-                    alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: isUser ? const Color(0xFF0D9488) : const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(12)),
-                      child: Text(_messages[i]["text"]!, style: TextStyle(color: isUser ? Colors.white : Colors.black87)),
+              itemCount: _messages.length,
+              itemBuilder: (context, i) {
+                final isUser = _messages[i]["sender"] == "user";
+                return Align(
+                  alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+                    decoration: BoxDecoration(
+                      gradient: isUser ? AppGradients.primary : null,
+                      color: isUser ? null : AppColors.bg,
+                      borderRadius: BorderRadius.only(
+                        topLeft: const Radius.circular(16), topRight: const Radius.circular(16),
+                        bottomLeft: Radius.circular(isUser ? 16 : 4),
+                        bottomRight: Radius.circular(isUser ? 4 : 16),
+                      ),
+                      boxShadow: [BoxShadow(color: AppColors.cardShadow, blurRadius: 6, offset: const Offset(0, 2))],
                     ),
-                  );
-                },
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.all(10),
-              color: const Color(0xFFF8FAFC),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _chatController,
-                      decoration: const InputDecoration(hintText: 'Type: AC kharab hai / I need plumber', border: InputBorder.none),
-                    ),
+                    child: Text(_messages[i]["text"]!, style: TextStyle(color: isUser ? Colors.white : AppColors.textDark, fontSize: 13, height: 1.4)),
                   ),
-                  IconButton(icon: const Icon(Icons.send, color: Color(0xFF0D9488)), onPressed: _sendMessage),
-                ],
+                );
+              },
+            ),
+          ),
+
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 10, 12, 14),
+            decoration: BoxDecoration(color: AppColors.surface, border: Border(top: BorderSide(color: AppColors.border))),
+            child: Row(children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(color: AppColors.bg, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.border)),
+                  child: TextField(
+                    controller: _ctrl,
+                    decoration: const InputDecoration(
+                      hintText: 'AC kharab hai / I need plumber',
+                      hintStyle: TextStyle(color: AppColors.textLight, fontSize: 12),
+                      border: InputBorder.none, contentPadding: EdgeInsets.symmetric(vertical: 11),
+                    ),
+                    onSubmitted: (_) => _send(),
+                  ),
+                ),
               ),
-            )
-          ],
-        ),
+              const SizedBox(width: 10),
+              Container(
+                width: 44, height: 44,
+                decoration: BoxDecoration(
+                  gradient: AppGradients.primary, shape: BoxShape.circle,
+                  boxShadow: [BoxShadow(color: AppColors.primary.withOpacity(0.4), blurRadius: 10, offset: const Offset(0, 3))],
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(22), onTap: _send,
+                    child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                  ),
+                ),
+              ),
+            ]),
+          ),
+        ]),
       ),
     );
   }
