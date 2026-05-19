@@ -803,8 +803,8 @@ class _LocationPageState extends State<LocationPage> {
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: value, isExpanded: true,
-          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primary),
-          style: const TextStyle(fontSize: 14, color: AppColors.textDark, fontWeight: FontWeight.w600),
+          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color.fromARGB(255, 4, 57, 50)),
+          style: const TextStyle(fontSize: 14, color: Color.fromARGB(255, 240, 243, 249), fontWeight: FontWeight.w600),
           alignment: isUrdu ? Alignment.centerRight : Alignment.centerLeft,
           items: items.map((i) => DropdownMenuItem(value: i,
             child: Align(alignment: isUrdu ? Alignment.centerRight : Alignment.centerLeft,
