@@ -60,7 +60,11 @@ class _FloatingIcon {
 class AnimatedBackgroundIcons extends StatefulWidget {
   final Widget child;
   final bool darkMode;
-  const AnimatedBackgroundIcons({Key? key, required this.child, this.darkMode = false}) : super(key: key);
+  const AnimatedBackgroundIcons({
+  super.key, 
+  required this.child, 
+  this.darkMode = false,
+});
 
   @override
   State<AnimatedBackgroundIcons> createState() => _AnimatedBackgroundIconsState();
@@ -150,7 +154,7 @@ class _AnimatedBackgroundIconsState extends State<AnimatedBackgroundIcons>
                       child: Icon(
                         ic.icon,
                         size:  ic.size,
-                        color: iconColor.withOpacity(ic.opacity),
+                        color: iconColor.withValues(alpha: ic.opacity),
                       ),
                     ),
                   );
@@ -170,7 +174,7 @@ class _AnimatedBackgroundIconsState extends State<AnimatedBackgroundIcons>
 // LANGUAGE + LOCALIZATION
 // ══════════════════════════════════════════════════════════
 class ProFixerApp extends StatefulWidget {
-  const ProFixerApp({Key? key}) : super(key: key);
+  const ProFixerApp({super.key});
   @override State<ProFixerApp> createState() => _ProFixerAppState();
 }
 
@@ -186,28 +190,54 @@ class _ProFixerAppState extends State<ProFixerApp> {
       child: MaterialApp(
         title: 'Asan Khidmat Hub',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          primaryColor: AppColors.primary,
-          scaffoldBackgroundColor: AppColors.bg,
-          fontFamily: 'sans-serif',
-          colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
-        ),
+       themeMode: ThemeMode.dark,
+darkTheme: ThemeData(
+  brightness: Brightness.dark,
+  scaffoldBackgroundColor: const Color(0xFF0F172A), // Deep Midnight
+  primaryColor: const Color(0xFF6366F1), // Electric Indigo
+  colorScheme: const ColorScheme.dark(
+    primary: Color(0xFF6366F1),
+    secondary: Color(0xFF2DD4BF), // Electric Teal
+  ),
+),
         home: const AppNavigationWrapper(),
       ),
     );
   }
 }
+class ElectricBackground extends StatelessWidget {
+  final Widget child;
 
+ const ElectricBackground({super.key, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF0F172A), // Dark Background
+            Color(0xFF1E1B4B), // Deep Electric Indigo
+            Color(0xFF0F172A), // Dark Background
+          ],
+        ),
+      ),
+      child: child,
+    );
+  }
+}
 class LanguageConfiguration extends InheritedWidget {
   final AppLanguage currentLanguage;
   final ValueChanged<AppLanguage> onLanguageChanged;
 
-  const LanguageConfiguration({
-    Key? key,
-    required this.currentLanguage,
-    required this.onLanguageChanged,
-    required Widget child,
-  }) : super(key: key, child: child);
+ const LanguageConfiguration({
+  super.key,
+  required this.currentLanguage,
+  required this.onLanguageChanged,
+  required super.child,
+});
 
   static LanguageConfiguration? of(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<LanguageConfiguration>();
@@ -265,7 +295,7 @@ class LocalizedStrings {
 // SHARED WIDGETS
 // ══════════════════════════════════════════════════════════
 class LanguageSwitcherRow extends StatelessWidget {
-  const LanguageSwitcherRow({Key? key}) : super(key: key);
+ const LanguageSwitcherRow({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -381,13 +411,20 @@ class StyledField extends StatelessWidget {
   final void Function(String)? onChanged;
 
   const StyledField({
-    Key? key,
-    required this.controller, required this.label, required this.hint,
-    required this.icon, required this.isUrdu,
-    this.isPassword = false, this.passwordHidden = true,
-    this.onTogglePassword, this.keyboardType = TextInputType.text,
-    this.inputFormatters, this.validator, this.onChanged,
-  }) : super(key: key);
+  super.key,
+  required this.controller,
+  required this.label,
+  required this.hint,
+  required this.icon,
+  required this.isUrdu,
+  this.isPassword = false,
+  this.passwordHidden = true,
+  this.onTogglePassword,
+  this.keyboardType = TextInputType.text,
+  this.inputFormatters,
+  this.validator,
+  this.onChanged,
+});
 
   @override
   Widget build(BuildContext context) {
